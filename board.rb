@@ -3,9 +3,10 @@ require_relative "cell"
 class Board
 	attr_reader :board, :board_size, :start, :end
 
-	def initialize(length: 0, width: 0, with_random_barriers: true, percent_barriers: 30)
-		@board_size = { length: length+2, width: width+2,
-			num_cells: (length+2) * (width+2) }
+	def initialize(length: 0, width: 0, with_random_barriers: true, percent_barriers: 25)
+		l, w = validate_parameters(length, width, percent_barriers)
+
+		@board_size = { length: l+2, width: w+2, num_cells: (l+2) * (w+2) }
 		initialize_board
 
 		@random_num_generator = Random.new
@@ -15,15 +16,18 @@ class Board
 		
 		@start = get_random_cell
 		@end = get_random_cell
+
+		calculate_distances
 	end
 
 	def to_s
 		@board.each_index do |i|
-			if @board[i] == @start
+			cell = @board[i]
+			if cell == @start
 				print "S"
-			elsif @board[i] == @end
+			elsif cell == @end
 				print "E"
-			elsif !@board[i].blocked
+			elsif !cell.blocked
 				print " "
 			else
 				print "X"
@@ -62,7 +66,34 @@ class Board
 		cell
 	end
 
+	def find_cell(cell)
+		(0...@board_size[:length]).each do |row|
+			(0...@board_size[:width]).each do |col|
+				if get_cell(row, col) == cell
+					return row, col
+				end
+			end
+		end
+	end
+
 	private
+	def validate_parameters(length, width, percent_barriers)
+		if length < 10
+			puts "Length cannot be less than 10... setting length to 10"
+			length = 10
+		end
+		if width < 10
+			puts "Width cannot be less than 10... setting width to 10"
+			width = 10
+		end
+		if percent_barriers >= 30
+			puts "Warning: algorithm to randomize barriers may not be able to" +
+			  " find enough random cells to create barriers"
+		end
+
+		return length, width
+	end
+
 	def initialize_board
 		length = @board_size[:length]
 		width = @board_size[:width]
@@ -205,5 +236,13 @@ class Board
 			end
 		end
 		num_blocked_cells
+	end
+
+	def calculate_distances
+		end_row, end_col = find_cell(@end)
+		@board.each do |cell|
+			row, col = find_cell(cell)
+			cell.distance = (row - end_row).abs + (col - end_col).abs
+		end
 	end
 end	
