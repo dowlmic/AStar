@@ -1,13 +1,13 @@
 class AStarPath
-	attr_accessor :path, :heuristic_score
+	attr_accessor :path, :score
 
-	def initialize(path: [], heuristic_score: 0)
+	def initialize(path: [], score: 0)
 		@path = path
-		@heuristic_score = heuristic_score
+		@score = score
 	end
 
 	def <=>(other)
-		path_comparison = self.heuristic_score <=> other.heuristic_score
+		path_comparison = self.score <=> other.score
 		if path_comparison == 0
 			path_comparison = self.path.length <=> other.path.length
 		end

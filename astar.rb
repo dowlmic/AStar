@@ -19,7 +19,7 @@ class AStar
 	end
 
 	def astar(board)
-		@paths = [AStarPath.new(path: [@start_cell], heuristic_score: @start_cell.distance)]
+		@paths = [AStarPath.new(path: [@start_cell], score: @start_cell.distance)]
 		while !@path
 			@paths.concat(evaluate_next_paths(@paths.delete(@paths.first)))
 			@paths = sort_paths(@paths)
@@ -61,9 +61,9 @@ class AStar
 		path.path.each do |cell|
 			copied_path.insert(-1, cell)
 		end
-		score = path.heuristic_score
+		score = path.score
 
-		AStarPath.new(path: copied_path, heuristic_score: score)
+		AStarPath.new(path: copied_path, score: score)
 	end
 
 	private
@@ -98,30 +98,20 @@ class AStar
 		down_cell = @board_obj.get_cell(row-1, col)
 
 		paths = []
-		if right_cell && !right_cell.blocked
-			tmp = duplicate_path(path)
-			tmp.path.insert(-1, right_cell)
-			tmp.heuristic_score = (tmp.path.length - 1) + right_cell.distance
-			paths.insert(-1, tmp)
+		paths.insert(-1, evaluate_next_cell(path, right_cell, paths))
+		paths.insert(-1, evaluate_next_cell(path, left_cell, paths))
+		paths.insert(-1, evaluate_next_cell(path, up_cell, paths))
+		paths.insert(-1, evaluate_next_cell(path, down_cell, paths))
+
+		paths.compact
+	end
+
+	def evaluate_next_cell(path, cell, paths)
+		if cell && !cell.blocked
+			temp_path = duplicate_path(path)
+			temp_path.path.insert(-1, cell)
+			temp_path.score = (temp_path.path.length - 1) + cell.distance
+			temp_path
 		end
-		if left_cell && !left_cell.blocked
-			tmp = duplicate_path(path)
-			tmp.path.insert(-1, left_cell)
-			tmp.heuristic_score = (tmp.path.length - 1) + left_cell.distance
-			paths.insert(-1, tmp)
-		end
-		if up_cell && !up_cell.blocked
-			tmp = duplicate_path(path)
-			tmp.path.insert(-1, up_cell)
-			tmp.heuristic_score = (tmp.path.length - 1) + up_cell.distance
-			paths.insert(-1, tmp)
-		end
-		if down_cell && !down_cell.blocked
-			tmp = duplicate_path(path)
-			tmp.path.insert(-1, down_cell)
-			tmp.heuristic_score = (tmp.path.length - 1) + down_cell.distance
-			paths.insert(-1, tmp)
-		end
-		paths
 	end
 end
