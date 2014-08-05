@@ -4,7 +4,7 @@ require_relative "jump_astar"
 class AStar
 	attr_reader :path, :board_obj, :start_cell, :end_cell
 
-	def initialize(board_obj, astar_helpers, type: "basic")
+	def initialize(board_obj, astar_helpers, type: :basic)
 		@astar_helpers = astar_helpers
 		@board_obj = board_obj
 		board = @board_obj.board
@@ -14,15 +14,12 @@ class AStar
 		@open = [CellPair.new(child: @start_cell, parent: @start_cell, distance_from_start: 0)]
 		@closed = astar_helpers.initialize_closed_hash(@board_obj)
 
-		if type == "basic"
+		if type == :basic
 			@path = BasicAStar.new(@board_obj, @open, @closed, @start_cell, @end_cell, @astar_helpers).path
-		elsif type == "jump"
+		elsif type == :jump
+			puts @closed
 			@path = JumpAStar.new(@board_obj, @open, @closed, @start_cell, @end_cell, @astar_helpers).path
 		end
-	end
-	
-	def jump(board_obj)
-
 	end
 
 	def to_s

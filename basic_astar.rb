@@ -13,9 +13,9 @@ class BasicAStar
 		end
 	end
 
-	def find_cell_pair(cell_pair, cell, board_obj)
+	def find_cell_pair(cell_pair, closed_hash, board_obj)
 		row, col = board_obj.find_cell(cell_pair.child)
-		cell[row][col]
+		closed_hash[row][col]
 	end
 
 	def get_path_with_cell(to_cell, from_cell, closed_hash, board_obj)

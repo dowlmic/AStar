@@ -74,6 +74,7 @@ class Board
 				end
 			end
 		end
+		nil
 	end
 
 	private

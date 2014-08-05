@@ -16,6 +16,10 @@ class AStarHelpers
 	end
 
 	def contains_cell?(closed, cell, board_obj)
+		!find_cell_pair_in_closed_hash(closed, cell, board_obj).nil?
+	end
+
+	def find_cell_pair_in_closed_hash(closed, cell, board_obj)
 		row, col = board_obj.find_cell(cell)
 		if !(closed[row] && closed[row][col]).nil?
 			closed[row][col]
