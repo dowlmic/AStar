@@ -17,7 +17,6 @@ class AStar
 		if type == :basic
 			@path = BasicAStar.new(@board_obj, @open, @closed, @start_cell, @end_cell, @astar_helpers).path
 		elsif type == :jump
-			puts @closed
 			@path = JumpAStar.new(@board_obj, @open, @closed, @start_cell, @end_cell, @astar_helpers).path
 		end
 	end

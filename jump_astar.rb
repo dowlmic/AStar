@@ -5,35 +5,32 @@ class JumpAStar
 	attr_accessor :path
 
 	def initialize(board_obj, open, closed, start_cell, end_cell, astar_helpers)
+		start_row, start_col = board_obj.find_cell(start_cell)
+		end_row, end_col = board_obj.find_cell(end_cell)
+
 		while !@path && !open.empty?
 			open.concat(evaluate_next_paths(open.delete(open.first), end_cell, open, closed, board_obj, astar_helpers))
 			open = sort_paths(open)
-			puts "OPEN: #{open}"
 			if astar_helpers.contains_cell?(closed, end_cell, board_obj)
 				@path = get_path_with_cell(end_cell, start_cell, closed, board_obj)
 			end
 		end
 	end
 
-	def get_direction_to_parent(child_cell, parent_cell, board_obj)
-		puts "CHILD: #{child_cell}, PARENT: #{parent_cell}"
+	def get_directions_to_and_from_parent(child_cell, parent_cell, board_obj)
 		child_row, child_col = board_obj.find_cell(child_cell)
 		parent_row, parent_col = board_obj.find_cell(parent_cell)
-		puts "C: #{child_row}, #{child_col}"
-		puts "P: #{parent_row}, #{parent_col}"
 
-		direction = ""
-		if child_col > parent_col
-			direction = :left
-		elsif child_col < parent_col
-			direction = :right
-		elsif child_row > parent_row
-			direction = :down
-		elsif child_row < parent_row
-			direction = :up
+		directions = []
+		if child_col > parent_col || child_col < parent_col
+			directions.insert(0, :right)
+			directions.insert(0, :left)
+		elsif child_row > parent_row || child_row < parent_row
+			directions.insert(0, :up)
+			directions.insert(0, :down)
 		end
 
-		direction
+		directions
 	end
 
 	def find_cell_pair(cell_pair, closed_hash, board_obj)
@@ -59,101 +56,91 @@ class JumpAStar
 	def evaluate_next_paths(cell_pair, end_cell, open, closed, board_obj, astar_helpers)
 		last_cell = cell_pair.child
 		row, col = board_obj.find_cell(last_cell)
-		puts "row: #{row}, col: #{col}"
-		direction = get_direction_to_parent(last_cell, cell_pair.parent, board_obj)
-		puts "DIRECTION: #{direction}"
+		directions = get_directions_to_and_from_parent(last_cell, cell_pair.parent, board_obj)
 
-		forced_neighbors = find_forced_neighbors(row, col, direction, closed, end_cell, board_obj, astar_helpers)
-
-		new_open_pairs = []
-		forced_neighbors.each do |cell|
-			puts "CELL: #{cell}"
-			cell_row, cell_col = board_obj.find_cell(cell)
-			new_pair = CellPair.new(parent: cell_pair.child, child: cell, distance_from_start: (cell_pair.distance_from_start + (row - cell_row).abs + (col - cell_col).abs))
-			pair_in_closed = astar_helpers.find_cell_pair_in_closed_hash(closed, cell, board_obj)
-			puts "PAIR IN CLOSED: #{pair_in_closed}"
-			puts "IS SHORTER PATH?: #{pair_in_closed && pair_in_closed.distance_from_start > new_pair.distance_from_start}"
-			puts "IN OPEN LIST?: #{contains_cell_pair?(open, new_pair)}"
-			if (!pair_in_closed || (pair_in_closed.distance_from_start > new_pair.distance_from_start)) && !contains_cell_pair?(open, new_pair)
-				new_open_pairs.insert(0, new_pair)
-				puts "NEW PAIR: #{new_pair.parent}, #{new_pair.child}"
-			end
-		end
+		forced_neighbors = find_forced_neighbors(cell_pair, directions, open, closed, end_cell, board_obj, astar_helpers)
 
 		move_to_closed(row, col, cell_pair, closed, board_obj)
 
-		new_open_pairs
+		forced_neighbors
 	end
 
-	def find_forced_neighbors(row, col, direction_to_parent, closed, end_cell, board_obj, astar_helpers)
+	def find_forced_neighbors(cell_pair, directions_to_and_from_parent, open, closed, end_cell, board_obj, astar_helpers)
 		end_row, end_col = board_obj.find_cell(end_cell)
+		parent_distance_from_start = cell_pair.distance_from_start
+		current_cell = cell_pair.child
+		row, col = board_obj.find_cell(current_cell)
 		forced_neighbors = []
 
-		if direction_to_parent != :left || direction_to_parent.empty?
+		if !directions_to_and_from_parent.include?(:left)
 			i = col
 			while i < board_obj.board_size[:width] - 1
 				i += 1
-				puts "RIGHT: #{row}, #{i}"
 				cell = board_obj.get_cell(row, i)
-				pair_in_closed = astar_helpers.find_cell_pair_in_closed_hash(closed, cell, board_obj)
-				if !pair_in_closed
-					if cell.blocked
-						forced_neighbors.insert(0, board_obj.get_cell(row, i-1))
-						break
-					elsif has_blocked_diagonal_neighbors?(row, i, board_obj) || row == end_row || i == end_col
-						forced_neighbors.insert(0, board_obj.get_cell(row, i))
+				if cell.blocked
+					cell = board_obj.get_cell(row, i-1)
+					if cell != current_cell
+						pair_in_closed = astar_helpers.find_cell_pair_in_closed_hash(closed, cell, board_obj)
+						add_new_pair(forced_neighbors, cell_pair, cell, current_cell, i-1, col, pair_in_closed, open, board_obj)
 					end
+					break
+				elsif has_blocked_diagonal_neighbors?(row, i, board_obj) || row == end_row || i == end_col
+					pair_in_closed = astar_helpers.find_cell_pair_in_closed_hash(closed, cell, board_obj)
+					add_new_pair(forced_neighbors, cell_pair, cell, current_cell, i, col, pair_in_closed, open, board_obj)
 				end
 			end
 		end
-		if direction_to_parent != :right || direction_to_parent.empty?
+		if !directions_to_and_from_parent.include?(:right)
 			i = col
 			while i > 0
 				i -= 1
-				puts "LEFT: #{row}, #{i}"
 				cell = board_obj.get_cell(row, i)
-				pair_in_closed = astar_helpers.find_cell_pair_in_closed_hash(closed, cell, board_obj)
-				if !pair_in_closed
-					if cell.blocked
-						forced_neighbors.insert(0, board_obj.get_cell(row, i+1))
-						break
-					elsif has_blocked_diagonal_neighbors?(row, i, board_obj) || row == end_row || i == end_col
-						forced_neighbors.insert(0, board_obj.get_cell(row, i))
+				if cell.blocked
+					cell = board_obj.get_cell(row, i+1)
+					if cell != current_cell
+						pair_in_closed = astar_helpers.find_cell_pair_in_closed_hash(closed, cell, board_obj)
+						add_new_pair(forced_neighbors, cell_pair, cell, current_cell, i+1, col, pair_in_closed, open, board_obj)
 					end
+					break
+				elsif has_blocked_diagonal_neighbors?(row, i, board_obj) || row == end_row || i == end_col
+					pair_in_closed = astar_helpers.find_cell_pair_in_closed_hash(closed, cell, board_obj)
+					add_new_pair(forced_neighbors, cell_pair, cell, current_cell, i, col, pair_in_closed, open, board_obj)
 				end
 			end
 		end
-		if direction_to_parent != :up || direction_to_parent.empty?
+		if !directions_to_and_from_parent.include?(:up)
 			i = row
 			while i < board_obj.board_size[:length] - 1
 				i += 1
-				puts "DOWN: #{i}, #{col}"
 				cell = board_obj.get_cell(i, col)
-				pair_in_closed = astar_helpers.find_cell_pair_in_closed_hash(closed, cell, board_obj)
-				if !pair_in_closed
-					if cell.blocked
-						forced_neighbors.insert(0, board_obj.get_cell(i-1, col))
-						break
-					elsif has_blocked_diagonal_neighbors?(i, col, board_obj) || i == end_row || col == end_col
-						forced_neighbors.insert(0, board_obj.get_cell(i, col))
+				if cell.blocked
+					cell = board_obj.get_cell(i-1, col)
+					if cell != current_cell
+						pair_in_closed = astar_helpers.find_cell_pair_in_closed_hash(closed, cell, board_obj)
+						add_new_pair(forced_neighbors, cell_pair, cell, current_cell, i-1, row, pair_in_closed, open, board_obj)
 					end
+					break
+				elsif has_blocked_diagonal_neighbors?(i, col, board_obj) || i == end_row || col == end_col
+					pair_in_closed = astar_helpers.find_cell_pair_in_closed_hash(closed, cell, board_obj)
+					add_new_pair(forced_neighbors, cell_pair, cell, current_cell, i, row, pair_in_closed, open, board_obj)
 				end
 			end
 		end
-		if direction_to_parent != :down || direction_to_parent.empty?
+		if !directions_to_and_from_parent.include?(:down)
 			i = row
 			while i > 0
 				i -= 1
-				puts "UP: #{i}, #{col}"
 				cell = board_obj.get_cell(i, col)
-				pair_in_closed = astar_helpers.find_cell_pair_in_closed_hash(closed, cell, board_obj)
-				if !pair_in_closed
-					if cell.blocked
-						forced_neighbors.insert(0, board_obj.get_cell(i+1, col))
-						break
-					elsif has_blocked_diagonal_neighbors?(i, col, board_obj) || i == end_row || col == end_col
-						forced_neighbors.insert(0, board_obj.get_cell(i, col))
+				if cell.blocked
+					cell = board_obj.get_cell(i+1, col)
+					if cell != current_cell
+						pair_in_closed = astar_helpers.find_cell_pair_in_closed_hash(closed, cell, board_obj)
+						add_new_pair(forced_neighbors, cell_pair, cell, current_cell, i+1, row, pair_in_closed, open, board_obj)
 					end
+					break
+				elsif has_blocked_diagonal_neighbors?(i, col, board_obj) || i == end_row || col == end_col
+					pair_in_closed = astar_helpers.find_cell_pair_in_closed_hash(closed, cell, board_obj)
+					add_new_pair(forced_neighbors, cell_pair, cell, current_cell, i, row, pair_in_closed, open, board_obj)
 				end
 			end
 		end
@@ -161,13 +148,31 @@ class JumpAStar
 		forced_neighbors
 	end
 
+	def add_new_pair(forced_neighbors, cell_pair, cell, parent_cell, cell_row_or_col, parent_cell_row_or_col, pair_in_closed, open, board_obj)
+		new_distance = cell_pair.distance_from_start + (cell_row_or_col - parent_cell_row_or_col).abs
+		new_pair = CellPair.new(child: cell, parent: parent_cell, distance_from_start: new_distance)
+		if (!pair_in_closed || (pair_in_closed.score > new_pair.score)) && !contains_cell_pair?(open, new_pair)
+			forced_neighbors.insert(0, new_pair)
+		end
+	end
+
 	def has_blocked_diagonal_neighbors?(row, col, board_obj)
 		length = board_obj.board_size[:length]
 		width = board_obj.board_size[:width]
-		if (row > 1 && col < width - 1 && board_obj.get_cell(row+1, col+1).blocked) ||
-			(row > 1 && col > 1 && board_obj.get_cell(row+1, col-1).blocked) ||
-			(row < length && col < width - 1 && board_obj.get_cell(row-1, col+1).blocked) ||
-			(row < length && col > 1 && board_obj.get_cell(row-1, col-1).blocked)
+
+		right = board_obj.get_cell(row, col+1)
+		up_right = board_obj.get_cell(row-1, col+1)
+		up = board_obj.get_cell(row-1, col)
+		up_left = board_obj.get_cell(row-1, col-1)
+		left = board_obj.get_cell(row, col-1)
+		down_left = board_obj.get_cell(row+1, col-1)
+		down = board_obj.get_cell(row+1, col)
+		down_right = board_obj.get_cell(row+1, col+1)
+		
+		if ((row > 1 && col < width - 2 && up_right.blocked && !(right.blocked || up.blocked)) ||
+			(row > 1 && col > 1 && up_left.blocked && !(left.blocked || up.blocked)) ||
+			(row < length - 2 && col < width - 2 && down_right.blocked && !(right.blocked || down.blocked)) ||
+			(row < length - 2 && col > 1 && down_left.blocked && !(left.blocked || down.blocked)))	
 			true
 		else
 			false
@@ -188,6 +193,5 @@ class JumpAStar
 		if !cell_pair_in_closed || (cell_pair_in_closed && cell_pair_in_closed.score > cell_pair.score)
 			closed[row][col] = cell_pair
 		end
-		puts "CLOSED: #{closed}"
 	end
 end
